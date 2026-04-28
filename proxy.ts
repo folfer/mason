@@ -9,14 +9,17 @@ const authRoutes = ['/login', '/register']
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Read session token from cookie (Better Auth uses "better-auth.session_token")
+  // Better Auth prefixes the cookie with "__Secure-" when the configured base URL
+  // uses HTTPS, so accept either name.
   const sessionToken =
+    request.cookies.get('__Secure-better-auth.session_token')?.value ??
     request.cookies.get('better-auth.session_token')?.value
 
   const isAuthenticated = !!sessionToken
 
-  // Redirect authenticated users away from login only (register may be needed to complete profile)
-  if (isAuthenticated && pathname === '/login') {
+  // Logged-in users see /news as their home, not the marketing landing or login.
+  // Register is left alone — onboarding may need it after signup.
+  if (isAuthenticated && (pathname === '/' || pathname === '/login')) {
     return NextResponse.redirect(new URL('/news', request.url))
   }
 

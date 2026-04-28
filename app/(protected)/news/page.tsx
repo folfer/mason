@@ -21,8 +21,8 @@ export default async function NewsPage() {
   })
 
   if (!user) redirect('/login')
-  if (!user.level) redirect('/register/quiz')
-  if (!user.levelVerified) redirect('/register/quiz')
+  if (!user.level) redirect('/profile')
+  if (!user.levelVerified) redirect('/profile')
   if (user.subscriptionStatus !== 'active') redirect('/subscribe')
 
   const allowedLevels = getAllowedAccessLevels(user.level as MasonicLevel)

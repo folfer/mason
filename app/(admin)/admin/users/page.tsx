@@ -1,4 +1,5 @@
 import { Metadata } from 'next'
+import Link from 'next/link'
 import { db } from '@/lib/db'
 import { users } from '@/lib/db/schema'
 import { desc } from 'drizzle-orm'
@@ -6,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { PromoteButton } from './PromoteButton'
-import { CheckCircle2, XCircle } from 'lucide-react'
+import { CheckCircle2, XCircle, Pencil } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Usuários — Admin' }
 
@@ -95,10 +96,19 @@ export default async function AdminUsersPage() {
                   {format(new Date(user.createdAt), 'dd/MM/yy', { locale: ptBR })}
                 </td>
                 <td className="px-4 py-3">
-                  <PromoteButton
-                    userId={user.id}
-                    currentRole={user.role ?? 'user'}
-                  />
+                  <div className="flex items-center justify-end gap-1">
+                    <Link
+                      href={`/admin/users/${user.id}`}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                      title="Ver / editar usuário"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Link>
+                    <PromoteButton
+                      userId={user.id}
+                      currentRole={user.role ?? 'user'}
+                    />
+                  </div>
                 </td>
               </tr>
             ))}

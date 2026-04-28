@@ -102,6 +102,12 @@ services:
       # ── DeepSeek ──
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
 
+      # ── Replicate ──
+      REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN}
+
+      # ── Cron ──
+      CRON_SECRET: ${CRON_SECRET}
+
 volumes:
   postgres_data:
   redis_data:

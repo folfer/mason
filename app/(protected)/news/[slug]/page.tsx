@@ -57,7 +57,7 @@ export default async function PostPage({
 
   if (!user) redirect('/login')
   if (!post || !post.published) notFound()
-  if (!user.levelVerified) redirect('/register/quiz')
+  if (!user.levelVerified) redirect('/profile')
   if (user.subscriptionStatus !== 'active') redirect('/subscribe')
 
   const hasAccess = canAccessPost(user.level as MasonicLevel, post.accessLevel)

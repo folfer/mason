@@ -19,7 +19,7 @@ export default async function SubscribePage() {
   })
 
   if (!user) redirect('/login')
-  if (!user.levelVerified) redirect('/register/quiz')
+  if (!user.levelVerified) redirect('/profile')
   if (user.subscriptionStatus === 'active') redirect('/news')
 
   const appUrl = process.env.BETTER_AUTH_URL ?? 'http://localhost:3000'

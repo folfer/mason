@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { signUp, signIn } from '@/lib/auth-client'
@@ -14,8 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, Globe, Check } from 'lucide-react'
-import { completeMasonicProfile } from './actions'
+import { Loader2, Globe, Check, FileText, Upload } from 'lucide-react'
+import { completeMasonicProfile, submitRegistrationCertificate } from './actions'
 import { cn } from '@/lib/utils'
 
 const CARGOS = [
@@ -43,7 +43,6 @@ type Step = 'account' | 'masonic'
 const STEPS = [
   { key: 'account', label: 'Conta' },
   { key: 'masonic', label: 'Dados Maçônicos' },
-  { key: 'quiz', label: 'Verificação' },
 ] as const
 
 export function RegisterForm() {
@@ -62,6 +61,8 @@ export function RegisterForm() {
   const [loja, setLoja] = useState('')
   const [grau, setGrau] = useState('')
   const [level, setLevel] = useState('')
+  const [certificate, setCertificate] = useState<File | null>(null)
+  const certificateInputRef = useRef<HTMLInputElement>(null)
 
   function formatCpf(value: string) {
     const digits = value.replace(/\D/g, '').slice(0, 11)
@@ -101,8 +102,18 @@ export function RegisterForm() {
     if (!cargo) { setError('Selecione seu cargo.'); setLoading(false); return }
     if (!grau) { setError('Selecione seu grau.'); setLoading(false); return }
     if (!level) { setError('Selecione seu nível.'); setLoading(false); return }
+    if (!certificate) {
+      setError('Anexe o certificado do grau para verificação.')
+      setLoading(false)
+      return
+    }
+    if (certificate.size > 10 * 1024 * 1024) {
+      setError('Certificado muito grande (máximo 10 MB).')
+      setLoading(false)
+      return
+    }
 
-    const result = await signUp.email({ email, password, name, callbackURL: '/register/quiz' })
+    const result = await signUp.email({ email, password, name, callbackURL: '/news' })
 
     if (result.error) {
       setError(result.error.message ?? 'Erro ao criar conta.')
@@ -132,7 +143,19 @@ export function RegisterForm() {
       return
     }
 
-    router.push('/register/quiz')
+    const certForm = new FormData()
+    certForm.set('userId', userId)
+    certForm.set('level', level)
+    certForm.set('certificate', certificate)
+    const certResult = await submitRegistrationCertificate(certForm)
+
+    if (!certResult.success) {
+      setError(certResult.error ?? 'Erro ao enviar certificado.')
+      setLoading(false)
+      return
+    }
+
+    router.push('/news')
   }
 
   const stepIndex = step === 'account' ? 0 : 1
@@ -289,8 +312,51 @@ export function RegisterForm() {
                 <SelectItem value="mestre">Mestre — 3º Grau</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs uppercase tracking-widest text-muted-foreground">
+              Certificado do Grau
+            </Label>
+            <input
+              ref={certificateInputRef}
+              type="file"
+              accept="application/pdf,image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(e) => setCertificate(e.target.files?.[0] ?? null)}
+            />
+            <button
+              type="button"
+              onClick={() => certificateInputRef.current?.click()}
+              className="w-full flex items-center gap-3 rounded-md border border-dashed border-border bg-surface/40 px-4 py-3 text-left transition-colors hover:border-primary/50 hover:bg-surface"
+            >
+              {certificate ? (
+                <>
+                  <FileText className="h-5 w-5 text-primary flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {certificate.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {(certificate.size / 1024).toFixed(0)} KB
+                    </p>
+                  </div>
+                  <span className="text-xs text-primary">Trocar</span>
+                </>
+              ) : (
+                <>
+                  <Upload className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm text-foreground">Anexar certificado</p>
+                    <p className="text-xs text-muted-foreground">
+                      PDF, JPG, PNG ou WEBP — até 10 MB
+                    </p>
+                  </div>
+                </>
+              )}
+            </button>
             <p className="text-xs text-muted-foreground">
-              Você responderá 3 perguntas de verificação no próximo passo.
+              O certificado passará por aprovação do administrador antes de liberar o conteúdo do seu grau.
             </p>
           </div>
 

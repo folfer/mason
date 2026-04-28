@@ -3,25 +3,21 @@ import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
-import { users } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { users, levelSubmissions } from '@/lib/db/schema'
+import type { MasonicLevel, SubmissionStatus } from '@/lib/db/schema'
+import { eq, desc } from 'drizzle-orm'
 import { stripe } from '@/lib/stripe'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { User, Building2, Award, CreditCard, ExternalLink } from 'lucide-react'
+import { CreditCard, ExternalLink, Mail, IdCard } from 'lucide-react'
 import Link from 'next/link'
+import { ProfileForm } from './ProfileForm'
+import { LevelSubmissionsCard } from './LevelSubmissionsCard'
 
 export const metadata: Metadata = { title: 'Meu Perfil' }
-
-const levelLabels: Record<string, string> = {
-  aprendiz: '🔵 Aprendiz',
-  companheiro: '🟣 Companheiro',
-  mestre: '🟡 Mestre',
-}
 
 export default async function ProfilePage() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -32,7 +28,11 @@ export default async function ProfilePage() {
   })
   if (!user) redirect('/login')
 
-  // Create Stripe billing portal URL if subscribed
+  const submissionRows = await db.query.levelSubmissions.findMany({
+    where: eq(levelSubmissions.userId, user.id),
+    orderBy: [desc(levelSubmissions.createdAt)],
+  })
+
   let billingPortalUrl: string | null = null
   if (user.stripeCustomerId) {
     try {
@@ -52,27 +52,35 @@ export default async function ProfilePage() {
       <h1 className="text-3xl font-bold mb-8">Meu Perfil</h1>
 
       <div className="space-y-6">
-        {/* Personal info */}
+        <ProfileForm
+          user={{
+            name: user.name,
+            image: user.image,
+            loja: user.loja,
+            cargo: user.cargo,
+            grau: user.grau,
+          }}
+        />
+
+        {/* Account info — read-only */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Dados pessoais
+              <Mail className="h-4 w-4" />
+              Conta
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-muted-foreground">Nome</p>
-                <p className="font-medium">{user.name}</p>
-              </div>
+            <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <p className="text-xs text-muted-foreground">Email</p>
                 <p className="font-medium">{user.email}</p>
               </div>
               {user.cpf && (
                 <div>
-                  <p className="text-xs text-muted-foreground">CPF</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <IdCard className="h-3 w-3" /> CPF
+                  </p>
                   <p className="font-medium font-mono">
                     {user.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}
                   </p>
@@ -82,48 +90,19 @@ export default async function ProfilePage() {
           </CardContent>
         </Card>
 
-        {/* Masonic info */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Building2 className="h-4 w-4" />
-              Dados Maçônicos
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-muted-foreground">Loja</p>
-                <p className="font-medium">{user.loja ?? '—'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Cargo</p>
-                <p className="font-medium">{user.cargo ?? '—'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Grau</p>
-                <p className="font-medium">{user.grau ?? '—'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Nível na plataforma</p>
-                <div className="flex items-center gap-2 mt-1">
-                  {user.level ? (
-                    <Badge
-                      variant={user.level as 'aprendiz' | 'companheiro' | 'mestre'}
-                    >
-                      {levelLabels[user.level] ?? user.level}
-                    </Badge>
-                  ) : (
-                    <span className="text-sm text-muted-foreground">—</span>
-                  )}
-                  {user.levelVerified && (
-                    <span className="text-xs text-green-600">✓ Verificado</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <LevelSubmissionsCard
+          submissions={submissionRows.map((s) => ({
+            id: s.id,
+            level: s.level as MasonicLevel,
+            certificateUrl: s.certificateUrl,
+            status: s.status as SubmissionStatus,
+            notes: s.notes,
+            reviewedAt: s.reviewedAt,
+            createdAt: s.createdAt,
+          }))}
+          currentLevel={(user.level as MasonicLevel) ?? null}
+          levelVerified={user.levelVerified}
+        />
 
         {/* Subscription */}
         <Card>

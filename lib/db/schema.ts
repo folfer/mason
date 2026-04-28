@@ -31,6 +31,11 @@ export const accessLevelEnum = pgEnum('access_level', [
   'companheiro',
   'mestre',
 ])
+export const submissionStatusEnum = pgEnum('submission_status', [
+  'pending',
+  'approved',
+  'rejected',
+])
 
 // --- Users (extended) ---
 export const users = pgTable(
@@ -135,6 +140,10 @@ export const posts = pgTable(
     authorId: text('author_id')
       .notNull()
       .references(() => users.id, { onDelete: 'restrict' }),
+    generatedByAi: boolean('generated_by_ai').notNull().default(false),
+    aiTemplateId: text('ai_template_id').references(() => aiPostSettings.id, {
+      onDelete: 'set null',
+    }),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
@@ -142,7 +151,51 @@ export const posts = pgTable(
     uniqueIndex('posts_slug_idx').on(t.slug),
     index('posts_published_idx').on(t.published),
     index('posts_access_level_idx').on(t.accessLevel),
+    index('posts_generated_by_ai_idx').on(t.generatedByAi, t.createdAt),
+    index('posts_ai_template_idx').on(t.aiTemplateId, t.createdAt),
   ]
+)
+
+// --- AI Post Generation Settings (one row per template; multiple per access_level allowed) ---
+export const aiPostSettings = pgTable(
+  'ai_post_settings',
+  {
+    id: text('id').primaryKey(),
+    accessLevel: accessLevelEnum('access_level').notNull(),
+    name: text('name'),
+    postsPerDay: integer('posts_per_day').notNull().default(0),
+    enabled: boolean('enabled').notNull().default(false),
+    promptHint: text('prompt_hint'),
+    lastRunAt: timestamp('last_run_at'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (t) => [index('ai_post_settings_access_level_idx').on(t.accessLevel)],
+)
+
+// --- Level Submissions (certificate uploads — admin reviews & approves) ---
+export const levelSubmissions = pgTable(
+  'level_submissions',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    level: masonicLevelEnum('level').notNull(),
+    certificateUrl: text('certificate_url').notNull(),
+    status: submissionStatusEnum('status').notNull().default('pending'),
+    notes: text('notes'),
+    reviewedById: text('reviewed_by_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    reviewedAt: timestamp('reviewed_at'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('level_submissions_user_idx').on(t.userId, t.createdAt),
+    index('level_submissions_status_idx').on(t.status, t.createdAt),
+  ],
 )
 
 // --- Quiz Questions ---
@@ -227,8 +280,19 @@ export const usersRelations = relations(users, ({ many }) => ({
 
 export const postsRelations = relations(posts, ({ one, many }) => ({
   author: one(users, { fields: [posts.authorId], references: [users.id] }),
+  aiTemplate: one(aiPostSettings, {
+    fields: [posts.aiTemplateId],
+    references: [aiPostSettings.id],
+  }),
   comments: many(postComments),
   likes: many(postLikes),
+}))
+
+export const levelSubmissionsRelations = relations(levelSubmissions, ({ one }) => ({
+  user: one(users, {
+    fields: [levelSubmissions.userId],
+    references: [users.id],
+  }),
 }))
 
 export const accountsRelations = relations(accounts, ({ one }) => ({
@@ -263,5 +327,10 @@ export type NewQuizQuestion = typeof quizQuestions.$inferInsert
 export type QuizAttempt = typeof quizAttempts.$inferSelect
 export type PostComment = typeof postComments.$inferSelect
 export type PostLike = typeof postLikes.$inferSelect
+export type AiPostSetting = typeof aiPostSettings.$inferSelect
+export type NewAiPostSetting = typeof aiPostSettings.$inferInsert
+export type LevelSubmission = typeof levelSubmissions.$inferSelect
+export type NewLevelSubmission = typeof levelSubmissions.$inferInsert
 export type MasonicLevel = 'aprendiz' | 'companheiro' | 'mestre'
 export type AccessLevel = 'all' | 'aprendiz' | 'companheiro' | 'mestre'
+export type SubmissionStatus = 'pending' | 'approved' | 'rejected'

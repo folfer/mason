@@ -5,14 +5,16 @@ import { db } from '@/lib/db'
 import { users } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import Link from 'next/link'
-import { LayoutDashboard, FileText, HelpCircle, Users, MessageSquare, ArrowLeft } from 'lucide-react'
+import { LayoutDashboard, FileText, HelpCircle, Users, MessageSquare, ArrowLeft, Settings, ShieldCheck } from 'lucide-react'
 
 const navItems = [
   { href: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/admin/posts', icon: FileText, label: 'Posts' },
+  { href: '/admin/submissions', icon: ShieldCheck, label: 'Submissões' },
   { href: '/admin/comments', icon: MessageSquare, label: 'Comentários' },
   { href: '/admin/quiz', icon: HelpCircle, label: 'Quiz' },
   { href: '/admin/users', icon: Users, label: 'Usuários' },
+  { href: '/admin/settings', icon: Settings, label: 'Configurações' },
 ]
 
 function CompassIcon({ className }: { className?: string }) {
